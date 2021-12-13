@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+set -e
+set -o pipefail
+
+ASDF_INSTALL_TYPE=${ASDF_INSTALL_TYPE:-version  }
+[ -n "$ASDF_INSTALL_VERSION" ] || (>&2 echo 'Missing ASDF_INSTALL_VERSION' && exit 1)
+[ -n "$ASDF_INSTALL_PATH" ] || (>&2 echo 'Missing ASDF_INSTALL_PATH' && exit 1)
+
+install_autok3s() {
+  local install_type=$1
+  local version=$2
+  local install_path=$3
+  local bin_install_path="$install_path/bin"
+  local download_url="$(get_download_url $version)"
+
+  mkdir -p "${bin_install_path}"
+
+  local bin_path="${bin_install_path}/autok3s"
+  echo "Downloading autok3s from ${download_url}"
+  if curl -sfL "$download_url" -o "$bin_path"; then
+    chmod +x $bin_path
+  else
+    exit 1
+  fi
+}
+
+get_arch() {
+  uname | tr '[:upper:]' '[:lower:]'
+}
+
+get_cpu() {
+  local machine_hardware_name
+  machine_hardware_name="$(uname -m)"
+
+  case "$machine_hardware_name" in
+    'x86_64') local cpu_type="amd64";;
+    'powerpc64le' | 'ppc64le') local cpu_type="ppc64le";;    
+    'aarch64') local cpu_type="arm64";;
+    'armv7l') local cpu_type="arm";;
+    *) local cpu_type="$machine_hardware_name";;
+  esac
+
+  echo "$cpu_type"
+}
+
+get_download_url() {
+  local version="$1"
+  local platform="$(get_arch)"
+  #https://github.com/cnrancher/autok3s/releases/download/v0.4.5/autok3s_linux_amd64
+  echo "https://github.com/cnrancher/autok3s/releases/download/v${version}/autok3s_${platform}_$(get_cpu)"
+}
+
+install_autok3s $ASDF_INSTALL_TYPE $ASDF_INSTALL_VERSION $ASDF_INSTALL_PATH
